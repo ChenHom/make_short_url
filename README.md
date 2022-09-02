@@ -1,64 +1,91 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 實作短網址
 
-<p align="center">
-<a href="https://travis-ci.org/laravel/framework"><img src="https://travis-ci.org/laravel/framework.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+實作的念頭來自 [chivincent's blog - 以 PHP FFI 使用 libcurl 構建 URL Parser](https://chivincent.net/p/url-parser-using-libcurl-with-php-ffi/)
 
-## About Laravel
+常見實作有二種： `自增序列`、 `摘要`
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## 自增序列
 
-## Learning Laravel
+每筆網址進來時便產生一組 id, 再將 id 從 10 進位轉成 62 進位
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+常見取 id 方式： `mysql`、 `redis`
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 2000 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### 優點
 
-## Laravel Sponsors
+簡單、快速、好用、不會重複
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
 
-### Premium Partners
+### 缺點
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[Many](https://www.many.co.uk)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[OP.GG](https://op.gg)**
-- **[WebReinvent](https://webreinvent.com/?utm_source=laravel&utm_medium=github&utm_campaign=patreon-sponsors)**
-- **[Lendio](https://lendio.com)**
+id 產生有順序。連續產生三筆時，會發現網址從 xD1Ada 變 xD1Adb 再變 xD1Adc
 
-## Contributing
+id 數字小時，轉成 62 進位後，得到的字串不足六碼。
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```
+ 12345 => 3d7 // 僅有三個字
 
-## Code of Conduct
+ 1654552345 => 1NYkE9  // 數字夠大，字數才足夠六位
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### 改進
 
-## Security Vulnerabilities
+將 id 加入隨機資料及可產生足夠字數的資料進去
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+例如：
+```
+(rand(1,9) * pow(10, 9) + id)
+```
 
-## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+## 摘要
+
+使用雜湊(hash)函式對長網址做處理
+
+
+### 優點
+
+不會有自增序時的缺點
+
+### 缺點
+
+各家函式有一定機率產生重複的值
+
+執行較秏時
+
+
+### 改進
+
+
+選用重複機率較低且非加密型的雜湊函式，例如：[murmurHash](https://zh.wikipedia.org/wiki/Murmur%E5%93%88%E5%B8%8C)
+
+```
+hash('murmur3a', 'abc132'); // 452f94c7
+```
+
+但仍可能發生重複，目前常見做法是將長網址加入特定訊息後再重新處理
+
+如果還是重複就再重做一次上述的流程直到不重複
+
+
+
+## 相關
+
+
+短網址存 redis 套上 bloom filter 用來檢查是否有重複及短網址的存活時間(例如：1小時)，有請求時再更新存活時間
+
+
+
+
+
+## 參考資料：
+
+[短网址服务的原理是什么？](https://www.zhihu.com/question/19852154)
+
+[短网址(short URL)系统的原理及其实现](https://hufangyun.com/2017/short-url/)
+
+[短 URL 系统是怎么设计的？ - iammutex的回答 - 知乎](https://www.zhihu.com/question/29270034/answer/46446911)
+
+[短 URL 系统是怎么设计的？ - 码海的回答 - 知乎](https://www.zhihu.com/question/29270034/answer/1679116463)
